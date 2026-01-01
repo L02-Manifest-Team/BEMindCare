@@ -59,6 +59,16 @@ uvicorn app.main:app --reload
 - `PATCH /api/appointments/{id}` - Cập nhật lịch hẹn
 - `DELETE /api/appointments/{id}` - Hủy lịch hẹn
 
+### Theo dõi tâm trạng
+- `GET /api/mood` - Lấy lịch sử tâm trạng
+- `POST /api/mood` - Thêm mục tâm trạng mới
+- `GET /api/mood/latest` - Lấy tâm trạng gần nhất
+
+### Trò chuyện
+- `GET /api/chats` - Lấy danh sách cuộc trò chuyện
+- `GET /api/chats/{chat_id}/messages` - Lấy tin nhắn trong cuộc trò chuyện
+- `POST /api/chats/{chat_id}/messages` - Gửi tin nhắn mới
+
 ## Cấu trúc thư mục
 
 ```
