@@ -26,12 +26,12 @@ pip install -r requirements.txt
 
 3. Tạo file .env từ file .env.example và cấu hình các biến môi trường cần thiết.
 
-4. Khởi tạo cơ sở dữ liệu:
+<!-- 4. Khởi tạo cơ sở dữ liệu:
 ```bash
 alembic upgrade head
-```
+``` -->
 
-5. Chạy ứng dụng:
+4. Chạy ứng dụng:
 ```bash
 uvicorn app.main:app --reload
 ```
