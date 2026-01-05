@@ -74,6 +74,14 @@ class User(Base):
         cascade="all, delete-orphan",
         lazy="selectin"
     )
+    
+    # Journal entries
+    journal_entries = relationship(
+        "JournalEntry",
+        back_populates="user",
+        cascade="all, delete-orphan",
+        lazy="selectin"
+    )
 
 class DoctorProfile(Base):
     __tablename__ = "doctor_profiles"

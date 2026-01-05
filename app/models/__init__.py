@@ -6,6 +6,7 @@ from .user import User, UserRole, DoctorProfile, DoctorEducation, DoctorExperien
 from .appointment import Appointment, AppointmentStatus, DoctorAvailability
 from .chat import Chat, ChatParticipant, Message
 from .mood import MoodEntry, MoodType
+from .journal import JournalEntry
 
 # This ensures that all models are properly imported and registered with SQLAlchemy
 # before any relationships are set up
@@ -23,5 +24,6 @@ __all__ = [
     'MoodType',
     'Appointment',
     'AppointmentStatus',
-    'DoctorAvailability'
+    'DoctorAvailability',
+    'JournalEntry'
 ]

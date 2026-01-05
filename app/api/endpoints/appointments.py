@@ -5,7 +5,7 @@ from datetime import datetime, date
 
 from app.db.session import get_db
 from app.models.appointment import Appointment as AppointmentModel, AppointmentStatus, DoctorAvailability
-from app.models.user import User
+from app.models.user import User, DoctorProfile
 
 # Import schemas
 from app.schemas.appointment import (
@@ -37,26 +37,47 @@ def create_appointment(
     if not doctor:
         raise HTTPException(status_code=404, detail="Doctor not found")
     
-    # Kiểm tra xem bác sĩ có khả dụng vào khung giờ này không
-    availability = db.query(DoctorAvailability).filter(
-        DoctorAvailability.doctor_id == appointment_in.doctor_id,
-        DoctorAvailability.date == appointment_in.appointment_date,
-        DoctorAvailability.time_slot == appointment_in.time_slot,
-        DoctorAvailability.is_available == True
+    # Lấy doctor_profile_id từ user_id
+    doctor_profile = db.query(DoctorProfile).filter(
+        DoctorProfile.user_id == appointment_in.doctor_id
     ).first()
     
-    if not availability:
+    if not doctor_profile:
+        raise HTTPException(status_code=404, detail="Doctor profile not found")
+    
+    doctor_profile_id = doctor_profile.id
+    
+    # Kiểm tra xem bác sĩ đã có appointment nào trong khung giờ này chưa
+    existing_doctor_appointment = db.query(AppointmentModel).filter(
+        AppointmentModel.doctor_id == appointment_in.doctor_id,
+        AppointmentModel.appointment_date == appointment_in.appointment_date,
+        AppointmentModel.time_slot == appointment_in.time_slot,
+        AppointmentModel.status.in_([AppointmentStatus.PENDING, AppointmentStatus.CONFIRMED])
+    ).first()
+    
+    if existing_doctor_appointment:
+        raise HTTPException(status_code=400, detail="Doctor is not available at this time slot")
+    
+    # Kiểm tra xem có record availability với is_available == False không
+    availability = db.query(DoctorAvailability).filter(
+        DoctorAvailability.doctor_id == doctor_profile_id,
+        DoctorAvailability.date == appointment_in.appointment_date,
+        DoctorAvailability.time_slot == appointment_in.time_slot,
+        DoctorAvailability.is_available == False
+    ).first()
+    
+    if availability:
         raise HTTPException(status_code=400, detail="Doctor is not available at this time slot")
     
     # Kiểm tra xem bệnh nhân đã có lịch hẹn nào trùng khung giờ này chưa
-    existing_appointment = db.query(AppointmentModel).filter(
+    existing_patient_appointment = db.query(AppointmentModel).filter(
         AppointmentModel.patient_id == current_user.id,
         AppointmentModel.appointment_date == appointment_in.appointment_date,
         AppointmentModel.time_slot == appointment_in.time_slot,
-        AppointmentModel.status.in_(["PENDING", "CONFIRMED"])
+        AppointmentModel.status.in_([AppointmentStatus.PENDING, AppointmentStatus.CONFIRMED])
     ).first()
     
-    if existing_appointment:
+    if existing_patient_appointment:
         raise HTTPException(status_code=400, detail="You already have an appointment at this time")
     
     # Tạo lịch hẹn mới
@@ -66,14 +87,36 @@ def create_appointment(
         status=AppointmentStatus.PENDING
     )
     
-    # Đánh dấu khung giờ này là đã đặt
-    availability.is_available = False
+    # Tìm hoặc tạo record availability để đánh dấu đã đặt
+    availability = db.query(DoctorAvailability).filter(
+        DoctorAvailability.doctor_id == doctor_profile_id,
+        DoctorAvailability.date == appointment_in.appointment_date,
+        DoctorAvailability.time_slot == appointment_in.time_slot
+    ).first()
+    
+    if availability:
+        # Nếu đã có record, đánh dấu là không available
+        availability.is_available = False
+    else:
+        # Nếu chưa có record, tạo mới với is_available = False
+        availability = DoctorAvailability(
+            doctor_id=doctor_profile_id,
+            date=appointment_in.appointment_date,
+            time_slot=appointment_in.time_slot,
+            is_available=False
+        )
+        db.add(availability)
     
     db.add(db_appointment)
     db.commit()
     db.refresh(db_appointment)
     
-    return AppointmentResponse.from_orm(db_appointment)
+    # Convert appointment_date from date to string for response
+    appointment_dict = {
+        **{c.name: getattr(db_appointment, c.name) for c in db_appointment.__table__.columns},
+        'appointment_date': db_appointment.appointment_date.isoformat() if isinstance(db_appointment.appointment_date, date) else db_appointment.appointment_date
+    }
+    return AppointmentResponse(**appointment_dict)
 
 @router.get("/", response_model=AppointmentListResponse)
 def get_appointments(
@@ -81,7 +124,7 @@ def get_appointments(
     start_date: Optional[date] = None,
     end_date: Optional[date] = None,
     page: int = Query(1, ge=1),
-    limit: int = Query(10, ge=1, le=100),
+    limit: int = Query(10, ge=1, le=200),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
@@ -112,8 +155,17 @@ def get_appointments(
         doctor = db.query(User).filter(User.id == appt.doctor_id).first()
         patient = db.query(User).filter(User.id == appt.patient_id).first()
         
+        if not doctor or not patient:
+            continue  # Skip appointments with missing related data
+
+        # Convert appointment_date from date to string
+        appt_dict = {
+            **{c.name: getattr(appt, c.name) for c in appt.__table__.columns},
+            'appointment_date': appt.appointment_date.isoformat() if isinstance(appt.appointment_date, date) else appt.appointment_date
+        }
+        
         appt_with_relations = AppointmentWithRelations(
-            **appt.__dict__,
+            **appt_dict,
             doctor=UserBase.from_orm(doctor),
             patient=UserBase.from_orm(patient)
         )
@@ -147,8 +199,14 @@ def get_appointment(
     doctor = db.query(User).filter(User.id == appointment.doctor_id).first()
     patient = db.query(User).filter(User.id == appointment.patient_id).first()
     
-    return AppointmentWithRelations(
+    # Convert appointment_date from date to string
+    appointment_dict = {
         **{c.name: getattr(appointment, c.name) for c in appointment.__table__.columns},
+        'appointment_date': appointment.appointment_date.isoformat() if isinstance(appointment.appointment_date, date) else appointment.appointment_date
+    }
+    
+    return AppointmentWithRelations(
+        **appointment_dict,
         doctor=UserBase.from_orm(doctor),
         patient=UserBase.from_orm(patient)
     )
@@ -179,7 +237,12 @@ def update_appointment(
     db.commit()
     db.refresh(db_appointment)
     
-    return AppointmentResponse.from_orm(db_appointment)
+    # Convert appointment_date from date to string for response
+    appointment_dict = {
+        **{c.name: getattr(db_appointment, c.name) for c in db_appointment.__table__.columns},
+        'appointment_date': db_appointment.appointment_date.isoformat() if isinstance(db_appointment.appointment_date, date) else db_appointment.appointment_date
+    }
+    return AppointmentResponse(**appointment_dict)
 
 @router.delete("/{appointment_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_appointment(

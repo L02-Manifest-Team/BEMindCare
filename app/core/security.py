@@ -90,3 +90,16 @@ def get_current_active_superuser(current_user: User = Depends(get_current_user))
             status_code=400, detail="The user doesn't have enough privileges"
         )
     return current_user
+
+def verify_token(token: str) -> dict:
+    """Verify JWT token and return payload (for WebSocket)"""
+    try:
+        payload = jwt.decode(
+            token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM]
+        )
+        return payload
+    except jwt.JWTError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Could not validate credentials"
+        )

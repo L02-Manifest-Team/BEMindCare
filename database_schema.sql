@@ -139,7 +139,18 @@ CREATE TABLE IF NOT EXISTS `mood_entries` (
     INDEX `idx_user_created` (`user_id`, `created_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-
+-- Create journal_entries table (Nhật ký cá nhân)
+CREATE TABLE IF NOT EXISTS `journal_entries` (
+    `id` INT AUTO_INCREMENT PRIMARY KEY,
+    `user_id` INT NOT NULL,
+    `content` TEXT NOT NULL,
+    `title` VARCHAR(255),
+    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE,
+    INDEX `idx_journal_user` (`user_id`),
+    INDEX `idx_journal_created` (`user_id`, `created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
 -- Thêm trigger để tự động tạo bản ghi trong doctor_profiles khi có user mới là bác sĩ

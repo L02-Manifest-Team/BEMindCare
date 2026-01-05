@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from datetime import datetime
+from datetime import datetime, date
 from typing import Optional, List
 from enum import Enum
 
@@ -33,6 +33,10 @@ class AppointmentInDBBase(AppointmentBase):
 
     class Config:
         from_attributes = True
+        # Use json_encoders to handle date conversion
+        json_encoders = {
+            date: lambda v: v.isoformat() if isinstance(v, date) else v
+        }
 
 class Appointment(AppointmentInDBBase):
     pass

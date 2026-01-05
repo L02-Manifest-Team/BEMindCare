@@ -82,8 +82,8 @@ async def get_mood_history(
     limit: int = Query(
         30, 
         ge=1, 
-        le=100, 
-        description="Maximum number of entries to return"
+        le=365, 
+        description="Maximum number of entries to return (max 365 for full year history)"
     ),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
@@ -93,7 +93,7 @@ async def get_mood_history(
     
     - **start_date**: Filter entries from this date (inclusive)
     - **end_date**: Filter entries until this date (inclusive)
-    - **limit**: Maximum number of entries to return (1-100)
+    - **limit**: Maximum number of entries to return (1-365)
     
     Returns a list of mood entries sorted by creation date (newest first).
     """

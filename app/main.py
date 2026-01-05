@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from app.core.config import settings
-from app.api.endpoints import auth, doctors, appointments, chat, mood
+from app.api.endpoints import auth, doctors, appointments, chat, mood, journal
 from app.db.session import engine, Base
 
 # Tạo bảng trong cơ sở dữ liệu
@@ -53,6 +53,12 @@ app.include_router(
     mood.router,
     prefix=f"{settings.API_V1_STR}/mood",
     tags=["Mood Tracking"]
+)
+
+app.include_router(
+    journal.router,
+    prefix=f"{settings.API_V1_STR}/journal",
+    tags=["Journal"]
 )
 
 @app.get("/")

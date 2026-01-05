@@ -35,7 +35,7 @@ deactivate () {
 # unset irrelevant variables
 deactivate nondestructive
 
-VIRTUAL_ENV="D:\HK_251\ptud_tbdd\Ass1\BEMindCare\venv"
+VIRTUAL_ENV="D:\Mobile_App_Dev\BE\BKMindCare_BE\venv"
 export VIRTUAL_ENV
 
 _OLD_VIRTUAL_PATH="$PATH"

@@ -1,14 +1,23 @@
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 from typing import List, Optional
 from app.models.chat import Chat, ChatParticipant, Message
 from app.models.user import User
 
 def get_or_create_chat(db: Session, user1_id: int, user2_id: int) -> Chat:
+    from sqlalchemy.orm import joinedload
+    
     # Find existing chat between two users
-    chat = db.query(Chat).join(ChatParticipant, Chat.id == ChatParticipant.chat_id)\
+    chat = db.query(Chat)\
+        .join(ChatParticipant, Chat.id == ChatParticipant.chat_id)\
         .filter(ChatParticipant.user_id.in_([user1_id, user2_id]))\
         .group_by(Chat.id)\
-        .having(db.func.count() == 2).first()
+        .having(func.count(ChatParticipant.id) == 2)\
+        .options(
+            joinedload(Chat.participants).joinedload(ChatParticipant.user),
+            joinedload(Chat.messages)
+        )\
+        .first()
     
     if not chat:
         # Create new chat
@@ -23,6 +32,15 @@ def get_or_create_chat(db: Session, user1_id: int, user2_id: int) -> Chat:
         
         db.commit()
         db.refresh(chat)
+        
+        # Reload with relationships
+        chat = db.query(Chat)\
+            .filter(Chat.id == chat.id)\
+            .options(
+                joinedload(Chat.participants).joinedload(ChatParticipant.user),
+                joinedload(Chat.messages)
+            )\
+            .first()
     
     return chat
 
@@ -39,9 +57,15 @@ def create_message(db: Session, chat_id: int, sender_id: int, content: str) -> M
     return message
 
 def get_user_chats(db: Session, user_id: int) -> List[Chat]:
+    from sqlalchemy.orm import joinedload
+    
     return db.query(Chat)\
         .join(ChatParticipant, Chat.id == ChatParticipant.chat_id)\
         .filter(ChatParticipant.user_id == user_id)\
+        .options(
+            joinedload(Chat.participants).joinedload(ChatParticipant.user),
+            joinedload(Chat.messages)
+        )\
         .all()
 
 def get_chat_messages(db: Session, chat_id: int, skip: int = 0, limit: int = 100) -> List[Message]:

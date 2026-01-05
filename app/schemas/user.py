@@ -47,6 +47,15 @@ class User(UserInDBBase):
 class Token(BaseModel):
     access_token: str
     token_type: str
+    refresh_token: Optional[str] = None
+    
+    class Config:
+        # Ensure refresh_token is included in response even if None
+        json_encoders = {
+            str: str
+        }
+        # Use model_dump with exclude_none=False to include None values
+        # But we want to exclude None, so we'll handle it in the endpoint
 
 class TokenData(BaseModel):
     email: Optional[str] = None

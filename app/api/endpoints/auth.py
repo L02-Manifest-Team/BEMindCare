@@ -12,6 +12,7 @@ from app.core.security import (
     get_current_active_user
 )
 from app.schemas.user import Token, LoginRequest, UserCreate, User
+from pydantic import BaseModel
 from app.db.session import get_db
 from app.models.user import User as UserModel
 from app.core.config import settings
@@ -64,11 +65,16 @@ async def login(login_data: LoginRequest, db: Session = Depends(get_db)):
     access_token = create_access_token(subject=user.email)
     refresh_token = create_refresh_token(subject=user.email)
     
-    return {
-        "access_token": access_token,
-        "token_type": "bearer",
-        "refresh_token": refresh_token
-    }
+    # Return Token model to ensure refresh_token is included
+    # Use model_dump with exclude_none=False to ensure refresh_token is always included
+    token_response = Token(
+        access_token=access_token,
+        token_type="bearer",
+        refresh_token=refresh_token
+    )
+    # Return as dict to bypass FastAPI's response_model serialization which might exclude None
+    # But we still validate with response_model=Token
+    return token_response.model_dump(exclude_none=False)
 
 @router.post("/token", response_model=Token)
 async def login_for_access_token(
@@ -86,11 +92,70 @@ async def login_for_access_token(
     access_token = create_access_token(subject=user.email)
     refresh_token = create_refresh_token(subject=user.email)
     
-    return {
-        "access_token": access_token,
-        "token_type": "bearer",
-        "refresh_token": refresh_token
-    }
+    # Return Token model to ensure refresh_token is included
+    # Use model_dump with exclude_none=False to ensure refresh_token is always included
+    token_response = Token(
+        access_token=access_token,
+        token_type="bearer",
+        refresh_token=refresh_token
+    )
+    # Return as dict to bypass FastAPI's response_model serialization which might exclude None
+    # But we still validate with response_model=Token
+    return token_response.model_dump(exclude_none=False)
+
+class RefreshTokenRequest(BaseModel):
+    refresh_token: str
+
+@router.post("/refresh", response_model=Token)
+async def refresh_token(
+    refresh_data: RefreshTokenRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    Refresh access token using refresh token.
+    """
+    from jose import jwt
+    from app.core.config import settings
+    
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate refresh token",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    
+    try:
+        payload = jwt.decode(
+            refresh_data.refresh_token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM]
+        )
+        # Check if it's a refresh token
+        if payload.get("type") != "refresh":
+            raise credentials_exception
+        
+        username: str = payload.get("sub")
+        if username is None:
+            raise credentials_exception
+    except jwt.JWTError:
+        raise credentials_exception
+    
+    # Get user
+    user = db.query(UserModel).filter(UserModel.email == username).first()
+    if user is None or not user.is_active:
+        raise credentials_exception
+    
+    # Create new tokens
+    new_access_token = create_access_token(subject=user.email)
+    new_refresh_token = create_refresh_token(subject=user.email)
+    
+    # Return Token model to ensure refresh_token is included
+    # Use model_dump with exclude_none=False to ensure refresh_token is always included
+    token_response = Token(
+        access_token=new_access_token,
+        token_type="bearer",
+        refresh_token=new_refresh_token
+    )
+    # Return as dict to bypass FastAPI's response_model serialization which might exclude None
+    # But we still validate with response_model=Token
+    return token_response.model_dump(exclude_none=False)
 
 @router.get("/me", response_model=User)
 async def read_users_me(current_user: User = Depends(get_current_user)):
