@@ -275,7 +275,7 @@ async def get_user_chats(
     ).filter(
         chat_models.ChatParticipant.user_id == current_user.id
     ).all()
-    
+
     # Format response
     from app.schemas.chat import ChatParticipant
     response_chats = []
@@ -325,7 +325,6 @@ async def get_user_chats(
         ))
     
 
-    
     return {'data': response_chats}
 
 @router.post(
