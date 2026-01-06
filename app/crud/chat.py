@@ -81,3 +81,33 @@ def mark_messages_as_read(db: Session, chat_id: int, user_id: int):
         .filter(Message.chat_id == chat_id, Message.sender_id != user_id)\
         .update({Message.read: True}, synchronize_session=False)
     db.commit()
+
+def update_message(db: Session, message_id: int, user_id: int, content: str) -> Optional[Message]:
+    """Update message content if user is the sender"""
+    
+    message = db.query(Message).filter(Message.id == message_id).first()
+    if not message:
+        return None
+    
+    # Verify sender
+    if message.sender_id != user_id:
+        return None
+    
+    message.content = content
+    db.commit()
+    db.refresh(message)
+    return message
+
+def delete_message(db: Session, message_id: int, user_id: int) -> bool:
+    """Delete message if user is the sender"""
+    message = db.query(Message).filter(Message.id == message_id).first()
+    if not message:
+        return False
+    
+    # Verify sender
+    if message.sender_id != user_id:
+        return False
+    
+    db.delete(message)
+    db.commit()
+    return True

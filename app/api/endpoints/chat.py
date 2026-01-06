@@ -8,7 +8,7 @@ from app.db.session import get_db
 from app.models.user import User
 from app.models import chat as chat_models
 from app.crud import chat as crud_chat
-from app.schemas.chat import Chat, Message, MessageCreate, ChatListResponse, CreateChatRequest
+from app.schemas.chat import Chat, Message, MessageCreate, ChatListResponse, CreateChatRequest, UpdateMessage
 from app.core.security import get_current_user, verify_token
 
 router = APIRouter(
@@ -479,3 +479,171 @@ async def get_chat_messages(
         )
         for msg in messages
     ]
+
+@router.put(
+    "/{chat_id}/messages/{message_id}",
+    response_model=Message,
+    summary="Edit a message",
+    description="Edit an existing message. Only the sender can edit their own messages.",
+    responses={
+        404: {"description": "Message not found"},
+        403: {"description": "Not authorized to edit this message"},
+        200: {"description": "Message edited successfully"}
+    }
+)
+async def edit_message(
+    chat_id: int,
+    message_id: int,
+    message_update: UpdateMessage,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Edit an existing message.
+    
+    - **chat_id**: ID of the chat containing the message
+    - **message_id**: ID of the message to edit
+    - **content**: New message content (max 1000 characters)
+    
+    Only the sender can edit their own messages.
+    Returns the updated message with edited_at timestamp.
+    """
+    
+    # Verify user is a participant in the chat
+    chat = db.query(chat_models.Chat).join(
+        chat_models.ChatParticipant,
+        chat_models.Chat.id == chat_models.ChatParticipant.chat_id
+    ).filter(
+        chat_models.Chat.id == chat_id,
+        chat_models.ChatParticipant.user_id == current_user.id
+    ).first()
+    
+    if not chat:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Chat not found"
+        )
+    
+    # Update message
+    updated_message = crud_chat.update_message(
+        db=db,
+        message_id=message_id,
+        user_id=current_user.id,
+        content=message_update.content
+    )
+    
+    if not updated_message:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to edit this message or message not found"
+        )
+    
+    # Broadcast via WebSocket if connections exist
+    chat_participants = db.query(chat_models.ChatParticipant).filter(
+        chat_models.ChatParticipant.chat_id == chat_id
+    ).all()
+    
+    from app.schemas.chat import Message as MessageSchema
+    message_response = MessageSchema(
+        id=updated_message.id,
+        content=updated_message.content,
+        sender_id=updated_message.sender_id,
+        chat_id=updated_message.chat_id,
+        created_at=updated_message.created_at,
+        read=updated_message.read
+    )
+    
+    # Send to all active WebSocket connections
+    for participant in chat_participants:
+        participant_id = participant.user_id
+        if participant_id in active_connections and chat_id in active_connections[participant_id]:
+            try:
+                await active_connections[participant_id][chat_id].send_text(
+                    json.dumps({
+                        "type": "message_edited",
+                        "message": message_response.model_dump()
+                    })
+                )
+            except Exception as e:
+                print(f"[API] Error sending edit notification to participant {participant_id}: {e}")
+                if participant_id in active_connections:
+                    active_connections[participant_id].pop(chat_id, None)
+    
+    return message_response
+
+@router.delete(
+    "/{chat_id}/messages/{message_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Delete a message",
+    description="Delete an existing message. Only the sender can delete their own messages.",
+    responses={
+        404: {"description": "Message not found"},
+        403: {"description": "Not authorized to delete this message"},
+        204: {"description": "Message deleted successfully"}
+    }
+)
+async def delete_message_endpoint(
+    chat_id: int,
+    message_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Delete an existing message.
+    
+    - **chat_id**: ID of the chat containing the message
+    - **message_id**: ID of the message to delete
+    
+    Only the sender can delete their own messages.
+    Returns 204 No Content on success.
+    """
+    # Verify user is a participant in the chat
+    chat = db.query(chat_models.Chat).join(
+        chat_models.ChatParticipant,
+        chat_models.Chat.id == chat_models.ChatParticipant.chat_id
+    ).filter(
+        chat_models.Chat.id == chat_id,
+        chat_models.ChatParticipant.user_id == current_user.id
+    ).first()
+    
+    if not chat:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Chat not found"
+        )
+    
+    # Delete message
+    success = crud_chat.delete_message(
+        db=db,
+        message_id=message_id,
+        user_id=current_user.id
+    )
+    
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to delete this message or message not found"
+        )
+    
+    # Broadcast via WebSocket if connections exist
+    chat_participants = db.query(chat_models.ChatParticipant).filter(
+        chat_models.ChatParticipant.chat_id == chat_id
+    ).all()
+    
+    # Send to all active WebSocket connections
+    for participant in chat_participants:
+        participant_id = participant.user_id
+        if participant_id in active_connections and chat_id in active_connections[participant_id]:
+            try:
+                await active_connections[participant_id][chat_id].send_text(
+                    json.dumps({
+                        "type": "message_deleted",
+                        "message_id": message_id
+                    })
+                )
+            except Exception as e:
+                print(f"[API] Error sending delete notification to participant {participant_id}: {e}")
+                if participant_id in active_connections:
+                    active_connections[participant_id].pop(chat_id, None)
+    
+    return None

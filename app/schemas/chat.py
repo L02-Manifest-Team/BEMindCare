@@ -9,6 +9,9 @@ class MessageBase(BaseModel):
 class MessageCreate(MessageBase):
     pass
 
+class UpdateMessage(BaseModel):
+    content: str = Field(..., min_length=1, max_length=1000)
+
 class Message(MessageBase):
     id: int
     sender_id: int
