@@ -9,7 +9,7 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     
     # Database
-    DATABASE_URL: str = "mysql://root:root@localhost:3306/bemindcare?charset=utf8mb4"
+    DATABASE_URL: str = "mysql://root:kBXpNkNZrMwQHpKkZTAdmhXFWDIrkOqa@yamanote.proxy.rlwy.net:38903/railway"
     
     class Config:
         case_sensitive = True
