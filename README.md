@@ -95,6 +95,4 @@ app/
 └── main.py
 ```
 
-## Giấy phép
 
-MIT
