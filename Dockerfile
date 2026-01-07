@@ -20,6 +20,5 @@ COPY . .
 # Expose port (Railway will override with $PORT)
 EXPOSE 8000
 
-# Start uvicorn with dynamic PORT from Railway
-# Use sh -c to ensure environment variable expansion works
-CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
+# Use Python script to start server (handles PORT properly)
+CMD ["python", "railway_start.py"]
