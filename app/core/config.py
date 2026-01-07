@@ -8,8 +8,12 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 8  # 8 ngày
     ALGORITHM: str = "HS256"
     
-    # Database
-    DATABASE_URL: str = "mysql://root:kBXpNkNZrMwQHpKkZTAdmhXFWDIrkOqa@yamanote.proxy.rlwy.net:38903/railway"
+    # Database - Railway MySQL requires pymysql driver and SSL
+    DATABASE_URL: str = (
+        "mysql+pymysql://root:kBXpNkNZrMwQHpKkZTAdmhXFWDIrkOqa"
+        "@yamanote.proxy.rlwy.net:38903/railway"
+        "?charset=utf8mb4&ssl=true"
+    )
     
     class Config:
         case_sensitive = True
