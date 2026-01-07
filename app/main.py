@@ -3,6 +3,7 @@ print(">>> [DEBUG] main.py loaded - starting imports...")
 from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+import os
 
 print(">>> [DEBUG] FastAPI imports successful")
 
@@ -10,12 +11,17 @@ from app.core.config import settings
 from app.api.endpoints import auth, doctors, appointments, chat, mood, journal
 from app.db.session import engine, Base
 
-print(">>> [DEBUG] App imports successful, creating database tables...")
+print(">>> [DEBUG] App imports successful")
 
-# Tạo bảng trong cơ sở dữ liệu
-Base.metadata.create_all(bind=engine)
+# Database table creation - optional to prevent deployment timeout
+# Set CREATE_TABLES=true in env to enable
+if os.getenv("CREATE_TABLES", "false").lower() == "true":
+    print(">>> [DEBUG] Creating database tables...")
+    Base.metadata.create_all(bind=engine)
+    print(">>> [DEBUG] Database tables created successfully")
+else:
+    print(">>> [DEBUG] Skipping table creation (set CREATE_TABLES=true to enable)")
 
-print(">>> [DEBUG] Database tables created successfully")
 
 
 
