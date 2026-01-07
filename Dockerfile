@@ -14,4 +14,8 @@ RUN pip install --upgrade pip \
 
 COPY . .
 
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "10000"]
+# Make start script executable
+RUN chmod +x start.sh
+
+# Use start.sh which handles Railway PORT properly
+CMD ["./start.sh"]
