@@ -74,6 +74,12 @@ async def health_check():
     """Health check endpoint for Railway and monitoring"""
     return {"status": "ok", "service": "BKMindCare API"}
 
+
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True)
+    import os
+    
+    # Railway provides PORT via environment variable
+    port = int(os.environ.get("PORT", 8000))
+    uvicorn.run("app.main:app", host="0.0.0.0", port=port, reload=False)
+
