@@ -1,19 +1,32 @@
+print(">>> [DEBUG] main.py loaded - starting imports...")
+
 from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+
+print(">>> [DEBUG] FastAPI imports successful")
 
 from app.core.config import settings
 from app.api.endpoints import auth, doctors, appointments, chat, mood, journal
 from app.db.session import engine, Base
 
+print(">>> [DEBUG] App imports successful, creating database tables...")
+
 # Tạo bảng trong cơ sở dữ liệu
 Base.metadata.create_all(bind=engine)
+
+print(">>> [DEBUG] Database tables created successfully")
+
+
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
     description="API for BEMindCare - Mental Health Consultation Platform",
     version="1.0.0"
 )
+
+print(">>> [DEBUG] FastAPI app created successfully")
+
 
 # Cấu hình CORS
 app.add_middleware(
