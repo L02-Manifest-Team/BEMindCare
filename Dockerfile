@@ -17,8 +17,8 @@ RUN pip install --upgrade pip \
 # Copy application code
 COPY . .
 
-# Expose port (Railway will override with $PORT)
+# Expose port
 EXPOSE 8000
 
-# Use Python script to start server (handles PORT properly)
-CMD ["python", "railway_start.py"]
+# Start uvicorn - shell form allows PORT variable expansion
+CMD uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}
